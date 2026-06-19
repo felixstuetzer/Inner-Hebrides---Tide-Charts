@@ -1,0 +1,421 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Hebrides Tides">
+<meta name="theme-color" content="#07172b">
+<title>Hebrides Tide &amp; Current</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+  body{background:#07172b;color:#c8dff0;font-family:'Space Mono','Courier New',monospace;padding:16px;padding-top:env(safe-area-inset-top,16px);padding-bottom:calc(env(safe-area-inset-bottom,0px) + 16px);max-width:480px;margin:0 auto;min-height:100vh;}
+  select,input[type=date]{background:#0d2640;color:#c8dff0;border:1px solid #1e4a7a;border-radius:4px;padding:8px 10px;font-family:'Space Mono',monospace;font-size:13px;width:100%;margin-top:4px;-webkit-appearance:none;appearance:none;cursor:pointer;outline:none;}
+  select:focus,input[type=date]:focus{border-color:#4a9eca;}
+  .card{background:#0d2640;border:1px solid #1a3d6e;border-radius:8px;padding:14px;margin-bottom:12px;}
+  .lbl{font-size:10px;color:#4a7aaa;letter-spacing:0.12em;text-transform:uppercase;}
+  .val{font-size:24px;font-weight:700;color:#7ec8e3;}
+  .sub{font-size:11px;color:#6a9ac0;margin-top:2px;font-family:Inter,sans-serif;}
+  .tag-hw{background:#0d3a5a;color:#7ec8e3;border-radius:3px;padding:3px 8px;font-size:12px;display:inline-block;margin:2px 4px 2px 0;}
+  .tag-lw{background:#0a1e30;color:#4a80b0;border-radius:3px;padding:3px 8px;font-size:12px;display:inline-block;margin:2px 4px 2px 0;}
+  .danger-box{background:#2a1008;border:1px solid #7a3010;border-radius:6px;padding:10px 12px;margin-top:10px;font-size:12px;color:#e09060;line-height:1.6;font-family:Inter,sans-serif;}
+  .note-box{background:#0a1e30;border-left:2px solid #1e5a8a;padding:8px 12px;margin-top:10px;font-size:12px;color:#88b8d8;line-height:1.6;font-family:Inter,sans-serif;}
+  .range-row{display:flex;gap:8px;}
+  .range-cell{flex:1;background:#07192e;border-radius:4px;padding:8px;text-align:center;}
+  .slack-row{display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid #0f2a45;}
+  .slack-row:last-child{border-bottom:none;}
+  .tab-bar{display:flex;background:#07172b;margin-bottom:12px;border-bottom:2px solid #0f2a45;}
+  .tab{flex:1;padding:10px 4px;border:none;cursor:pointer;font-family:'Space Mono',monospace;font-size:11px;letter-spacing:0.08em;background:transparent;color:#3a6a9a;border-bottom:2px solid transparent;transition:all 0.15s;margin-bottom:-2px;}
+  .tab.active{background:#0d2640;color:#7ec8e3;border-bottom:2px solid #4a9eca;}
+  .footer{text-align:center;font-size:10px;color:#1e4a6a;margin-top:20px;line-height:1.6;font-family:Inter,sans-serif;}
+  table{width:100%;border-collapse:collapse;font-size:12px;font-family:'Space Mono',monospace;}
+  td{padding:4px 4px;}
+  tr.now-row{background:#0f2e50;}
+  .grid-2{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+  svg{display:block;}
+</style>
+</head>
+<body>
+
+<div id="header" style="margin-bottom:16px;">
+  <div style="font-size:10px;letter-spacing:0.2em;color:#2a6a9a;margin-bottom:3px;">INNER HEBRIDES</div>
+  <div style="font-size:20px;font-weight:700;color:#a8d8f0;letter-spacing:0.05em;">TIDE &amp; CURRENT</div>
+  <div style="font-size:11px;color:#2e6a9a;margin-top:2px;font-family:Inter,sans-serif;">Harmonische Berechnung · UKHO-Konstanten · Ref: HW Oban</div>
+</div>
+
+<div class="card" style="padding-top:10px;padding-bottom:10px;margin-bottom:14px;">
+  <div class="lbl">Datum</div>
+  <input type="date" id="dateInput">
+</div>
+
+<div class="tab-bar">
+  <button class="tab active" id="tabTides" onclick="switchTab('tides')">GEZEITEN</button>
+  <button class="tab" id="tabStreams" onclick="switchTab('streams')">STRÖMUNGEN</button>
+</div>
+
+<div id="paneTides"></div>
+<div id="paneStreams" style="display:none;"></div>
+
+<div class="footer">
+  Alle Zeiten UTC · Admiralty Tidal Stream Atlas · Harmonische Näherung<br>
+  Vor kritischen Passagen immer Admiralty EasyTide + NP 218/222 prüfen
+</div>
+
+<script>
+// ─── Data ────────────────────────────────────────────────────────────────────
+const STATIONS = {
+  "Oban":                   { mhws:4.0,mlws:0.4,mhwn:3.2,mlwn:1.1, harmonics:{M2:{a:1.70,p:7},S2:{a:0.58,p:42},N2:{a:0.34,p:352},K1:{a:0.09,p:317},O1:{a:0.06,p:275}}, note:"Hauptreferenzpegel für die Inneren Hebriden", danger:false },
+  "Sound of Mull":          { mhws:3.9,mlws:0.4,mhwn:3.1,mlwn:1.1, harmonics:{M2:{a:1.65,p:10},S2:{a:0.55,p:45},N2:{a:0.32,p:355},K1:{a:0.08,p:320},O1:{a:0.06,p:278}}, note:"Tobermory: Einfahrt bei allen Tidenständen möglich", danger:false },
+  "Corryvreckan":           { mhws:3.3,mlws:0.4,mhwn:2.7,mlwn:1.0, harmonics:{M2:{a:1.42,p:18},S2:{a:0.48,p:52},N2:{a:0.28,p:3},K1:{a:0.07,p:325},O1:{a:0.05,p:280}},  note:"Maximalstrom bis 8.5 kn. Passage nur ±1h um Slack Water. Nie bei Starkwind W–NW.", danger:true },
+  "Loch Scavaig (Skye)":   { mhws:4.8,mlws:0.5,mhwn:3.7,mlwn:1.3, harmonics:{M2:{a:2.05,p:358},S2:{a:0.70,p:33},N2:{a:0.40,p:343},K1:{a:0.10,p:310},O1:{a:0.07,p:268}}, note:"Anker nur auf SW-Seite; exponiert bei SE-Wind", danger:false },
+  "Portree (Skye)":         { mhws:4.9,mlws:0.5,mhwn:3.8,mlwn:1.3, harmonics:{M2:{a:2.10,p:356},S2:{a:0.71,p:31},N2:{a:0.41,p:341},K1:{a:0.10,p:308},O1:{a:0.07,p:266}}, note:"Gut geschützter Hafen. Pier-Liegeplätze begrenzt.", danger:false },
+  "Craighouse (Jura)":      { mhws:3.0,mlws:0.4,mhwn:2.5,mlwn:0.9, harmonics:{M2:{a:1.28,p:22},S2:{a:0.43,p:57},N2:{a:0.25,p:7},K1:{a:0.06,p:328},O1:{a:0.05,p:283}},  note:"Jura Distillery: Anker in 4–6m vor dem Dorf", danger:false },
+  "Sound of Islay":         { mhws:3.1,mlws:0.4,mhwn:2.6,mlwn:0.9, harmonics:{M2:{a:1.32,p:20},S2:{a:0.44,p:55},N2:{a:0.26,p:5},K1:{a:0.06,p:326},O1:{a:0.05,p:281}},  note:"Strom bis 3 kn. Richtung N bei Flut, S bei Ebbe.", danger:false },
+  "Colonsay":               { mhws:3.3,mlws:0.4,mhwn:2.7,mlwn:1.0, harmonics:{M2:{a:1.40,p:19},S2:{a:0.47,p:54},N2:{a:0.27,p:4},K1:{a:0.07,p:327},O1:{a:0.05,p:282}},  note:"Guter Stopover; Pier bei NW exponiert", danger:false },
+};
+
+const PASSAGES = {
+  "Corryvreckan":         { danger:true,  pos:"56°08'N 5°44'W", maxS:8.5, maxN:4.5, slackOff:330, note:"Passage nur ±45min um Slack Water (Spring) / ±1h (Neap). Overfalls bei Wind gegen Strom.", streams:[{h:-6,s:1.5,n:0.8,d:270,l:"W – ablaufend"},{h:-5,s:3.5,n:1.8,d:270,l:"W – ablaufend"},{h:-4,s:6.0,n:3.2,d:270,l:"W – stark"},{h:-3,s:8.0,n:4.2,d:270,l:"W – Maximum"},{h:-2,s:7.5,n:4.0,d:270,l:"W – abnehmend"},{h:-1,s:4.5,n:2.4,d:270,l:"W – schwächer"},{h:0,s:1.0,n:0.5,d:0,l:"Slack ~HW+5h30"},{h:1,s:2.0,n:1.0,d:90,l:"O – aufbauend"},{h:2,s:5.0,n:2.6,d:90,l:"O – stark"},{h:3,s:8.5,n:4.5,d:90,l:"O – Maximum"},{h:4,s:7.0,n:3.7,d:90,l:"O – abnehmend"},{h:5,s:3.5,n:1.8,d:90,l:"O – schwächer"},{h:6,s:1.0,n:0.5,d:0,l:"Slack – nächstes Fenster"}]},
+  "Kyle Rhea":            { danger:true,  pos:"57°14'N 5°40'W", maxS:8.0, maxN:4.0, slackOff:0,   note:"Einer der stärksten Tidenstrome Schottlands. Passage nur bei Slack (HW Oban ±30min). N-Richtung bei Flut.", streams:[{h:-6,s:1.5,n:0.8,d:180,l:"S – ablaufend"},{h:-5,s:4.0,n:2.0,d:180,l:"S – stark"},{h:-4,s:7.0,n:3.5,d:180,l:"S – Maximum"},{h:-3,s:8.0,n:4.0,d:180,l:"S – Maximum"},{h:-2,s:6.5,n:3.3,d:180,l:"S – abnehmend"},{h:-1,s:3.0,n:1.5,d:180,l:"S – schwächer"},{h:0,s:0.5,n:0.2,d:0,l:"Slack – HW Oban"},{h:1,s:3.5,n:1.8,d:0,l:"N – aufbauend"},{h:2,s:6.5,n:3.3,d:0,l:"N – stark"},{h:3,s:8.0,n:4.0,d:0,l:"N – Maximum"},{h:4,s:7.0,n:3.5,d:0,l:"N – abnehmend"},{h:5,s:3.5,n:1.8,d:0,l:"N – schwächer"},{h:6,s:1.0,n:0.5,d:0,l:"Slack – nächstes Fenster"}]},
+  "Sound of Islay":       { danger:false, pos:"55°55'N 6°02'W", maxS:3.5, maxN:1.8, slackOff:60,  note:"N-Richtung bei Flut (HW Oban), S bei Ebbe. Überfall bei N-Strom und SW-Wind möglich.", streams:[{h:-6,s:3.0,n:1.6,d:180,l:"S – ablaufend"},{h:-5,s:3.5,n:1.8,d:180,l:"S – Maximum"},{h:-4,s:3.0,n:1.6,d:180,l:"S – abnehmend"},{h:-3,s:2.0,n:1.0,d:180,l:"S – schwächer"},{h:-2,s:1.0,n:0.5,d:180,l:"S – schwach"},{h:-1,s:0.5,n:0.2,d:0,l:"Slack ~HW-1h"},{h:0,s:1.5,n:0.8,d:0,l:"N – aufbauend"},{h:1,s:2.5,n:1.3,d:0,l:"N – stark"},{h:2,s:3.5,n:1.8,d:0,l:"N – Maximum"},{h:3,s:3.0,n:1.6,d:0,l:"N – abnehmend"},{h:4,s:2.0,n:1.0,d:0,l:"N – schwächer"},{h:5,s:0.5,n:0.3,d:0,l:"Slack ~HW+5h"},{h:6,s:2.0,n:1.0,d:180,l:"S – aufbauend"}]},
+  "Sound of Mull":        { danger:false, pos:"56°32'N 5°48'W", maxS:2.5, maxN:1.3, slackOff:30,  note:"NE-Richtung bei Flut (Richtung Tobermory). Moderat – auch bei Spring unproblematisch.", streams:[{h:-6,s:2.0,n:1.0,d:225,l:"SW – ablaufend"},{h:-5,s:2.5,n:1.3,d:225,l:"SW – Maximum"},{h:-4,s:2.0,n:1.0,d:225,l:"SW – abnehmend"},{h:-3,s:1.5,n:0.8,d:225,l:"SW – schwächer"},{h:-2,s:0.8,n:0.4,d:225,l:"SW – schwach"},{h:-1,s:0.3,n:0.2,d:0,l:"Slack ~HW-30min"},{h:0,s:0.8,n:0.4,d:45,l:"NE – aufbauend"},{h:1,s:1.5,n:0.8,d:45,l:"NE – stark"},{h:2,s:2.5,n:1.3,d:45,l:"NE – Maximum"},{h:3,s:2.0,n:1.0,d:45,l:"NE – abnehmend"},{h:4,s:1.5,n:0.8,d:45,l:"NE – schwächer"},{h:5,s:0.5,n:0.3,d:0,l:"Slack ~HW+5h"},{h:6,s:1.5,n:0.8,d:225,l:"SW – aufbauend"}]},
+  "Dorus Mor":            { danger:true,  pos:"56°08'N 5°38'W", maxS:7.5, maxN:4.0, slackOff:60,  note:"Starke Overfalls und Wirbel bei Maximalstrom. Passage ±1h um Slack. Craobh Haven direkt östlich – gutes Wartegebiet.", streams:[{h:-6,s:1.5,n:0.8,d:180,l:"S – ablaufend"},{h:-5,s:4.0,n:2.1,d:180,l:"S – stark"},{h:-4,s:6.5,n:3.4,d:180,l:"S – stark"},{h:-3,s:7.5,n:4.0,d:180,l:"S – Maximum"},{h:-2,s:6.0,n:3.2,d:180,l:"S – abnehmend"},{h:-1,s:3.0,n:1.6,d:180,l:"S – schwächer"},{h:0,s:0.5,n:0.3,d:0,l:"Slack ~HW+1h"},{h:1,s:2.5,n:1.3,d:0,l:"N – aufbauend"},{h:2,s:5.5,n:2.9,d:0,l:"N – stark"},{h:3,s:7.5,n:4.0,d:0,l:"N – Maximum"},{h:4,s:6.0,n:3.2,d:0,l:"N – abnehmend"},{h:5,s:3.0,n:1.6,d:0,l:"N – schwächer"},{h:6,s:0.5,n:0.3,d:0,l:"Slack – nächstes Fenster"}]},
+  "Cuan Sound":           { danger:false, pos:"56°14'N 5°37'W", maxS:5.5, maxN:2.8, slackOff:90,  note:"Engstelle Seil–Luing. Brücke 6m Luftraum. Passage nur bei Slack – Querstrom baut sehr schnell auf.", streams:[{h:-6,s:1.0,n:0.5,d:135,l:"SE – ablaufend"},{h:-5,s:3.0,n:1.5,d:135,l:"SE – stark"},{h:-4,s:5.0,n:2.5,d:135,l:"SE – Maximum"},{h:-3,s:5.5,n:2.8,d:135,l:"SE – Maximum"},{h:-2,s:4.0,n:2.0,d:135,l:"SE – abnehmend"},{h:-1,s:2.0,n:1.0,d:135,l:"SE – schwächer"},{h:0,s:0.3,n:0.2,d:0,l:"Slack ~HW+1h30"},{h:1,s:2.5,n:1.3,d:315,l:"NW – aufbauend"},{h:2,s:4.5,n:2.3,d:315,l:"NW – stark"},{h:3,s:5.5,n:2.8,d:315,l:"NW – Maximum"},{h:4,s:4.0,n:2.0,d:315,l:"NW – abnehmend"},{h:5,s:2.0,n:1.0,d:315,l:"NW – schwächer"},{h:6,s:0.3,n:0.2,d:0,l:"Slack – nächstes Fenster"}]},
+  "Loch Linnhe (Corran)": { danger:false, pos:"56°43'N 5°14'W", maxS:3.5, maxN:1.8, slackOff:15,  note:"Fährenroute Corran–Ardgour. Enge Fahrrinne. N-Richtung bei Flut (Richtung Fort William).", streams:[{h:-6,s:2.5,n:1.3,d:180,l:"S – ablaufend"},{h:-5,s:3.5,n:1.8,d:180,l:"S – Maximum"},{h:-4,s:3.0,n:1.5,d:180,l:"S – abnehmend"},{h:-3,s:2.0,n:1.0,d:180,l:"S – schwächer"},{h:-2,s:1.0,n:0.5,d:180,l:"S – schwach"},{h:-1,s:0.3,n:0.2,d:0,l:"Slack ~HW-15min"},{h:0,s:1.0,n:0.5,d:0,l:"N – aufbauend"},{h:1,s:2.0,n:1.0,d:0,l:"N – stark"},{h:2,s:3.5,n:1.8,d:0,l:"N – Maximum"},{h:3,s:3.0,n:1.5,d:0,l:"N – abnehmend"},{h:4,s:2.0,n:1.0,d:0,l:"N – schwächer"},{h:5,s:0.8,n:0.4,d:0,l:"N – schwach"},{h:6,s:0.3,n:0.2,d:0,l:"Slack – nächstes Fenster"}]},
+  "Sound of Jura (N)":    { danger:false, pos:"56°05'N 5°45'W", maxS:2.5, maxN:1.3, slackOff:120, note:"Nördlicher Sound of Jura. Bei Spring und NW-Wind kann Welle aufbauen.", streams:[{h:-6,s:2.0,n:1.0,d:135,l:"SE – ablaufend"},{h:-5,s:2.5,n:1.3,d:135,l:"SE – Maximum"},{h:-4,s:2.0,n:1.0,d:135,l:"SE – abnehmend"},{h:-3,s:1.5,n:0.8,d:135,l:"SE – schwächer"},{h:-2,s:0.8,n:0.4,d:135,l:"SE – schwach"},{h:-1,s:0.3,n:0.2,d:0,l:"Slack ~HW-1h"},{h:0,s:0.8,n:0.4,d:315,l:"NW – aufbauend"},{h:1,s:1.5,n:0.8,d:315,l:"NW – stark"},{h:2,s:2.5,n:1.3,d:315,l:"NW – Maximum"},{h:3,s:2.0,n:1.0,d:315,l:"NW – abnehmend"},{h:4,s:1.5,n:0.8,d:315,l:"NW – schwächer"},{h:5,s:0.5,n:0.3,d:0,l:"Slack ~HW+5h"},{h:6,s:1.5,n:0.8,d:135,l:"SE – aufbauend"}]},
+};
+
+// ─── Tidal math ───────────────────────────────────────────────────────────────
+const DEG = Math.PI/180;
+const SPEEDS = {M2:28.9841,S2:30.0,N2:28.4397,K1:15.0411,O1:13.9430};
+const JD0 = 2451545.0;
+
+function toJD(date){
+  const y=date.getUTCFullYear(),m=date.getUTCMonth()+1,d=date.getUTCDate();
+  const A=Math.floor((14-m)/12),Y=y+4800-A,M=m+12*A-3;
+  return d+Math.floor((153*M+2)/5)+365*Y+Math.floor(Y/4)-Math.floor(Y/100)+Math.floor(Y/400)-32045;
+}
+
+function tideH(st, date){
+  const jd=toJD(date)+(date.getUTCHours()+date.getUTCMinutes()/60)/24;
+  const hours=(jd-JD0)*24;
+  const msl=(st.mhws+st.mlws)/2;
+  let h=msl;
+  for(const [k,{a,p}] of Object.entries(st.harmonics)) h+=a*Math.cos((SPEEDS[k]*hours-p)*DEG);
+  return Math.max(0,h);
+}
+
+function dayProfile(st, dateStr){
+  const pts=[];
+  for(let m=0;m<1440;m+=10){
+    const d=new Date(dateStr+"T00:00:00Z"); d.setUTCMinutes(m);
+    pts.push({m, h:tideH(st,d)});
+  }
+  return pts;
+}
+
+function extrema(profile){
+  const ex=[];
+  for(let i=1;i<profile.length-1;i++){
+    const p=profile[i-1].h,c=profile[i].h,n=profile[i+1].h;
+    if(c>p&&c>n) ex.push({...profile[i],type:"HW"});
+    else if(c<p&&c<n) ex.push({...profile[i],type:"LW"});
+  }
+  return ex;
+}
+
+function hhmm(m){
+  const mm=((m%(24*60))+1440)%1440;
+  return String(Math.floor(mm/60)).padStart(2,"0")+":"+String(mm%60).padStart(2,"0");
+}
+
+function springFactor(profile){
+  const hs=profile.map(p=>p.h);
+  const range=Math.max(...hs)-Math.min(...hs);
+  const oban=STATIONS["Oban"];
+  const sr=oban.mhws-oban.mlws, nr=oban.mhwn-oban.mlwn;
+  return Math.min(1,Math.max(0,(range-nr)/(sr-nr)));
+}
+
+function trafficLight(speed,maxS){
+  const r=speed/maxS;
+  if(r<0.25) return {col:"#22c55e",label:"Grün",bg:"#052a10"};
+  if(r<0.55) return {col:"#f59e0b",label:"Gelb",bg:"#2a1e04"};
+  if(r<0.80) return {col:"#f97316",label:"Orange",bg:"#2a1004"};
+  return {col:"#ef4444",label:"Rot",bg:"#2a0404"};
+}
+
+function getStreamNow(passage, hwMin, sf){
+  const now=new Date(), nowMin=now.getUTCHours()*60+now.getUTCMinutes();
+  const hwRel=(nowMin-hwMin)/60;
+  const s=passage.streams;
+  for(let i=0;i<s.length-1;i++){
+    if(hwRel>=s[i].h&&hwRel<s[i+1].h){
+      const t=(hwRel-s[i].h)/(s[i+1].h-s[i].h);
+      const spd=(s[i].n+(s[i+1].n-s[i].n)*t)+(((s[i].s+(s[i+1].s-s[i].s)*t)-(s[i].n+(s[i+1].n-s[i].n)*t))*sf);
+      return {speed:spd, dir:s[i].d, label:s[i].l, hwRel};
+    }
+  }
+  const last=s[s.length-1];
+  return {speed:last.s*sf+last.n*(1-sf), dir:last.d, label:last.l, hwRel};
+}
+
+// ─── SVG helpers ─────────────────────────────────────────────────────────────
+function tideCurveSVG(profile, ex, danger){
+  const W=340,H=100;
+  const hs=profile.map(p=>p.h);
+  const minH=Math.min(...hs),maxH=Math.max(...hs);
+  const sx=x=>(x/1440)*W, sy=y=>H-8-((y-minH)/(maxH-minH+0.01))*(H-20);
+  const acc=danger?"#e05a2b":"#4a9eca";
+  const pathD=profile.map((p,i)=>`${i===0?"M":"L"}${sx(p.m).toFixed(1)},${sy(p.h).toFixed(1)}`).join(" ");
+  const fillD=pathD+` L${W},${H} L0,${H} Z`;
+  const now=new Date(), nowMin=now.getUTCHours()*60+now.getUTCMinutes();
+  const gid="g"+Math.random().toString(36).slice(2);
+  let exHTML=ex.map(e=>{
+    const dy=e.type==="HW"?-6:12;
+    return `<circle cx="${sx(e.m).toFixed(1)}" cy="${sy(e.h).toFixed(1)}" r="3" fill="${e.type==="HW"?"#7ec8e3":"#2a6496"}"/>
+    <text x="${sx(e.m).toFixed(1)}" y="${(sy(e.h)+dy).toFixed(1)}" text-anchor="middle" font-size="8" fill="${e.type==="HW"?"#a8ddf0":"#6aace0"}" font-family="Space Mono,monospace">${e.type} ${e.h.toFixed(1)}m</text>`;
+  }).join("");
+  let gridH=[0,6,12,18,24].map(h=>`<line x1="${sx(h*60)}" y1="0" x2="${sx(h*60)}" y2="${H}" stroke="#1e3a5f" stroke-width="0.5"/>`).join("");
+  let labH=[0,6,12,18].map(h=>`<text x="${sx(h*60)+2}" y="${H-1}" font-size="7" fill="#3a6b9a" font-family="Space Mono,monospace">${String(h).padStart(2,"0")}h</text>`).join("");
+  return `<svg viewBox="0 0 ${W} ${H}" style="width:100%;max-width:400px;">
+    <defs><linearGradient id="${gid}" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="${acc}" stop-opacity="0.4"/>
+      <stop offset="100%" stop-color="${acc}" stop-opacity="0.04"/>
+    </linearGradient></defs>
+    ${gridH}
+    <path d="${fillD}" fill="url(#${gid})"/>
+    <path d="${pathD}" fill="none" stroke="${acc}" stroke-width="2" stroke-linejoin="round"/>
+    ${exHTML}${labH}
+    <line x1="${sx(nowMin)}" y1="0" x2="${sx(nowMin)}" y2="${H}" stroke="#f0c040" stroke-width="1" stroke-dasharray="3,2"/>
+  </svg>`;
+}
+
+function streamBarSVG(passage, sf, hwMin){
+  const W=340,H=80,barW=W/13;
+  const now=new Date(), nowMin=now.getUTCHours()*60+now.getUTCMinutes();
+  const hwRel=(nowMin-hwMin)/60;
+  let bars="";
+  passage.streams.forEach((s,i)=>{
+    const spd=s.n+(s.s-s.n)*sf;
+    const bh=Math.max(2,(spd/passage.maxS)*(H-24));
+    const isNow=hwRel>=s.h&&(i===passage.streams.length-1||hwRel<passage.streams[i+1].h);
+    const r=spd/passage.maxS;
+    const col=r<0.25?"#22c55e":r<0.55?"#f59e0b":r<0.80?"#f97316":"#ef4444";
+    const x=i*barW;
+    bars+=`${isNow?`<rect x="${x}" y="0" width="${barW}" height="${H-20}" fill="white" opacity="0.06" rx="1"/>`:""}
+    <rect x="${x+1}" y="${H-20-bh}" width="${barW-2}" height="${bh}" fill="${col}" opacity="${isNow?1:0.45}" rx="1"/>
+    <text x="${x+barW/2}" y="${H-14}" text-anchor="middle" font-size="7" fill="${isNow?"#fff":"#88b8d8"}" font-family="Space Mono,monospace">${spd.toFixed(1)}</text>
+    <text x="${x+barW/2}" y="${H-6}" text-anchor="middle" font-size="7" fill="${isNow?"#f0c040":"#3a6b9a"}" font-family="Space Mono,monospace">${s.h>=0?"+"+s.h:s.h}h</text>`;
+  });
+  return `<svg viewBox="0 0 ${W} ${H}" style="width:100%;max-width:400px;">${bars}</svg>`;
+}
+
+function dirArrowSVG(deg){
+  const rad=(deg-90)*DEG;
+  const cx=12,cy=12,r=9;
+  const x2=cx+r*Math.cos(rad),y2=cy+r*Math.sin(rad);
+  const x1=cx-r*Math.cos(rad)*0.5,y1=cy-r*Math.sin(rad)*0.5;
+  const ax1=x2-4*Math.cos(rad-0.5),ay1=y2-4*Math.sin(rad-0.5);
+  const ax2=x2-4*Math.cos(rad+0.5),ay2=y2-4*Math.sin(rad+0.5);
+  return `<svg width="28" height="28" viewBox="0 0 24 24" style="display:inline-block;vertical-align:middle;">
+    <circle cx="12" cy="12" r="11" fill="#0a1e30" stroke="#1e4a7a" stroke-width="1"/>
+    <line x1="${x1.toFixed(1)}" y1="${y1.toFixed(1)}" x2="${x2.toFixed(1)}" y2="${y2.toFixed(1)}" stroke="#7ec8e3" stroke-width="2" stroke-linecap="round"/>
+    <polygon points="${x2.toFixed(1)},${y2.toFixed(1)} ${ax1.toFixed(1)},${ay1.toFixed(1)} ${ax2.toFixed(1)},${ay2.toFixed(1)}" fill="#7ec8e3"/>
+  </svg>`;
+}
+
+// ─── State ────────────────────────────────────────────────────────────────────
+let currentTab = "tides";
+let currentStation = "Oban";
+let currentPassage = "Corryvreckan";
+
+function getDateStr(){ return document.getElementById("dateInput").value; }
+
+// ─── Render ───────────────────────────────────────────────────────────────────
+function renderTides(){
+  const dateStr=getDateStr();
+  const st=STATIONS[currentStation];
+  const prof=dayProfile(st,dateStr);
+  const ex=extrema(prof);
+  const hwList=ex.filter(e=>e.type==="HW");
+  const lwList=ex.filter(e=>e.type==="LW");
+  const now=new Date();
+  const nowH=tideH(st,now);
+  const soonH=tideH(st,new Date(now.getTime()+15*60*1000));
+  const rising=soonH>nowH;
+
+  const stOptions=Object.keys(STATIONS).map(k=>`<option${k===currentStation?" selected":""}>${k}</option>`).join("");
+  const hwTags=hwList.map(e=>`<span class="tag-hw">${hhmm(e.m)} · ${e.h.toFixed(2)}m</span>`).join("")||"<span style='font-size:12px;color:#4a6a8a'>–</span>";
+  const lwTags=lwList.map(e=>`<span class="tag-lw">${hhmm(e.m)} · ${e.h.toFixed(2)}m</span>`).join("")||"<span style='font-size:12px;color:#4a6a8a'>–</span>";
+  const rangeCells=[["MHWS",st.mhws],["MHWN",st.mhwn],["MLWN",st.mlwn],["MLWS",st.mlws]]
+    .map(([l,v])=>`<div class="range-cell"><div style="font-size:9px;color:#2a6a9a;letter-spacing:0.1em;">${l}</div><div style="font-size:15px;font-weight:700;color:#7ec8e3;margin-top:2px;">${v}m</div></div>`).join("");
+
+  document.getElementById("paneTides").innerHTML=`
+    <div class="card" style="padding-top:10px;padding-bottom:8px;">
+      <div class="lbl">Station</div>
+      <select id="stationSel">${stOptions}</select>
+    </div>
+    <div class="card" style="padding-bottom:6px;">
+      <div class="lbl" style="margin-bottom:8px;">Tidenkurve UTC</div>
+      ${tideCurveSVG(prof,ex,st.danger)}
+      <div style="font-size:10px;color:#2a5a7a;margin-top:2px;text-align:right;font-family:Inter,sans-serif;">gelbe Linie = jetzt</div>
+    </div>
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+        <div>
+          <div class="lbl">Jetzt</div>
+          <div class="val">${nowH.toFixed(2)} m</div>
+          <div class="sub">${rising?"▲ steigend":"▼ fallend"}</div>
+        </div>
+        <div style="text-align:right;">
+          <div class="lbl">Bereich heute</div>
+          <div style="font-size:13px;color:#7ec8e3;margin-top:4px;">${lwList[0]?lwList[0].h.toFixed(1):"–"} – ${hwList[0]?hwList[0].h.toFixed(1):"–"} m</div>
+          <div class="sub">LW – HW</div>
+        </div>
+      </div>
+    </div>
+    <div class="card">
+      <div style="display:flex;gap:16px;">
+        <div style="flex:1;"><div class="lbl" style="margin-bottom:6px;">Hochwasser</div>${hwTags}</div>
+        <div style="flex:1;"><div class="lbl" style="margin-bottom:6px;">Niedrigwasser</div>${lwTags}</div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="lbl" style="margin-bottom:8px;">Tidenhub (Admiralty)</div>
+      <div class="range-row">${rangeCells}</div>
+    </div>
+    ${st.danger?`<div class="danger-box">⚠ ${st.note}</div>`:`<div class="note-box">${st.note}</div>`}
+  `;
+  document.getElementById("stationSel").addEventListener("change",e=>{currentStation=e.target.value;renderTides();});
+}
+
+function renderStreams(){
+  const dateStr=getDateStr();
+  const obanProf=dayProfile(STATIONS["Oban"],dateStr);
+  const obanEx=extrema(obanProf);
+  const obanHW=obanEx.filter(e=>e.type==="HW");
+  const obanLW=obanEx.filter(e=>e.type==="LW");
+  const sf=springFactor(obanProf);
+  const passage=PASSAGES[currentPassage];
+
+  const passOptions=Object.keys(PASSAGES).map(k=>`<option${k===currentPassage?" selected":""}>${k}</option>`).join("");
+
+  // Current stream
+  let statusHTML="";
+  if(obanHW[0]){
+    const ps=getStreamNow(passage,obanHW[0].m,sf);
+    const tl=trafficLight(ps.speed,passage.maxS);
+    statusHTML=`
+      <div class="card" style="background:${tl.bg};border-color:${tl.col}44;">
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+          <div>
+            <div class="lbl">Strom jetzt</div>
+            <div style="font-size:26px;font-weight:700;color:${tl.col};margin-top:2px;">${ps.speed.toFixed(1)} kn</div>
+            <div style="font-size:11px;color:${tl.col};opacity:0.8;margin-top:2px;font-family:Inter,sans-serif;">${ps.label}</div>
+          </div>
+          <div style="text-align:right;">
+            <div style="margin-bottom:4px;">${dirArrowSVG(ps.dir)}</div>
+            <div style="font-size:10px;color:#4a7aaa;">${ps.dir===0?"Slack":ps.dir+"°T"}</div>
+            <div style="margin-top:6px;background:${tl.col};border-radius:4px;padding:3px 10px;font-size:11px;font-weight:700;color:#07172b;display:inline-block;">${tl.label}</div>
+          </div>
+        </div>
+        <div style="font-size:10px;color:${tl.col};opacity:0.6;margin-top:8px;font-family:Inter,sans-serif;">
+          HW Oban ${obanHW[0]?hhmm(obanHW[0].m):"–"} · Spring-Faktor ${(sf*100).toFixed(0)}% · Max Spring ${passage.maxS} kn
+        </div>
+      </div>`;
+  }
+
+  // Bar chart
+  let barHTML="";
+  if(obanHW[0]){
+    barHTML=`<div class="card" style="padding-bottom:6px;">
+      <div class="lbl" style="margin-bottom:8px;">Strom 24h (kn) · rel. HW Oban</div>
+      ${streamBarSVG(passage,sf,obanHW[0].m)}
+      <div style="font-size:10px;color:#2a5a7a;margin-top:2px;text-align:right;font-family:Inter,sans-serif;">Hervorgehobene Säule = aktuell · Farbe = Ampel</div>
+    </div>`;
+  }
+
+  // Slack windows
+  const allEx=[...obanHW,...obanLW];
+  const slacks=allEx.map(e=>({time:hhmm(e.m+passage.slackOff),base:e.type,baseTime:hhmm(e.m)}))
+    .sort((a,b)=>a.time.localeCompare(b.time));
+  const slackRows=slacks.map(w=>`
+    <div class="slack-row">
+      <div><span style="font-size:15px;font-weight:700;color:#22c55e;font-family:'Space Mono',monospace;">~${w.time}</span>
+      <span style="font-size:10px;color:#2a6a3a;margin-left:8px;font-family:Inter,sans-serif;">UTC</span></div>
+      <div style="text-align:right;font-size:11px;color:#4a7a9a;font-family:Inter,sans-serif;">${w.base} Oban ${w.baseTime}</div>
+    </div>`).join("");
+
+  // Hour table
+  const nowMin=new Date().getUTCHours()*60+new Date().getUTCMinutes();
+  const hwRel0=obanHW[0]?(nowMin-obanHW[0].m)/60:99;
+  const tableRows=passage.streams.map((s,i)=>{
+    const isNow=hwRel0>=s.h&&(i===passage.streams.length-1||hwRel0<passage.streams[i+1].h);
+    const r=s.s/passage.maxS;
+    const col=r<0.25?"#22c55e":r<0.55?"#f59e0b":r<0.80?"#f97316":"#ef4444";
+    return `<tr${isNow?' class="now-row"':''}>
+      <td style="color:${isNow?"#f0c040":"#6a9ac0"};font-weight:${isNow?"700":"400"};">${s.h>=0?"+"+s.h:s.h}h</td>
+      <td style="text-align:right;color:${col};font-weight:700;">${s.s.toFixed(1)}</td>
+      <td style="text-align:right;color:#4a80b0;">${s.n.toFixed(1)}</td>
+      <td style="color:#88b8d8;font-size:10px;font-family:Inter,sans-serif;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:120px;">${s.l}</td>
+    </tr>`;
+  }).join("");
+
+  document.getElementById("paneStreams").innerHTML=`
+    <div class="card" style="padding-top:10px;padding-bottom:8px;">
+      <div class="lbl">Passage</div>
+      <select id="passageSel">${passOptions}</select>
+    </div>
+    ${statusHTML}
+    ${barHTML}
+    <div class="card">
+      <div class="lbl" style="margin-bottom:8px;">Slack-Fenster heute (UTC)</div>
+      ${slackRows||"<div style='font-size:12px;color:#4a6a8a'>Keine Daten</div>"}
+    </div>
+    <div class="card">
+      <div class="lbl" style="margin-bottom:8px;">Stundentabelle · Spring / Neap (kn)</div>
+      <div style="overflow-x:auto;">
+        <table>
+          <thead><tr style="color:#4a7aaa;">
+            <td>HW±</td><td style="text-align:right;">Spr.</td><td style="text-align:right;">Neap</td><td>Richtung</td>
+          </tr></thead>
+          <tbody>${tableRows}</tbody>
+        </table>
+      </div>
+    </div>
+    <div style="font-size:10px;color:#1e4a6a;margin-bottom:8px;font-family:Inter,sans-serif;">
+      Position: ${passage.pos} · Max Spring: ${passage.maxS} kn · Max Neap: ${passage.maxN} kn
+    </div>
+    ${passage.danger?`<div class="danger-box">⚠ ${passage.note}</div>`:`<div class="note-box">${passage.note}</div>`}
+  `;
+  document.getElementById("passageSel").addEventListener("change",e=>{currentPassage=e.target.value;renderStreams();});
+}
+
+function render(){
+  if(currentTab==="tides") renderTides();
+  else renderStreams();
+}
+
+function switchTab(tab){
+  currentTab=tab;
+  document.getElementById("tabTides").classList.toggle("active",tab==="tides");
+  document.getElementById("tabStreams").classList.toggle("active",tab==="streams");
+  document.getElementById("paneTides").style.display=tab==="tides"?"":"none";
+  document.getElementById("paneStreams").style.display=tab==="streams"?"":"none";
+  render();
+}
+
+// ─── Init ─────────────────────────────────────────────────────────────────────
+document.addEventListener("DOMContentLoaded",()=>{
+  const today=new Date().toISOString().split("T")[0];
+  document.getElementById("dateInput").value=today;
+  document.getElementById("dateInput").addEventListener("change",render);
+  render();
+});
+</script>
+</body>
+</html>
