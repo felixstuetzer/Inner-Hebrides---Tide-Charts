@@ -60,32 +60,36 @@
 <div id="paneStreams" style="display:none;"></div>
 
 <div class="footer">
-  Alle Zeiten UTC · Admiralty Tidal Stream Atlas · Harmonische Näherung<br>
-  Vor kritischen Passagen immer Admiralty EasyTide + NP 218/222 prüfen
+  Alle Zeiten UTC · Amplituden: Admiralty Tide Tables · Phasen: Näherung<br>
+  Zeiten ±20–40 min · Höhen ±15–20 cm · Vor kritischen Passagen EasyTide prüfen
 </div>
 
 <script>
 // ─── Data ────────────────────────────────────────────────────────────────────
+// Amplituden korrigiert nach Admiralty Tide Tables / Scotland wave & tidal resource (2017)
+// Phasen: Greenwich phase lag (°). Zeitabweichungen ±20-40min möglich – für kritische
+// Passagen stets EasyTide als Referenz nutzen. Phasenwerte aus NP201 würden Genauigkeit
+// weiter verbessern, sind aber nicht frei verfügbar.
 const STATIONS = {
-  "Oban":                   { mhws:4.0,mlws:0.4,mhwn:3.2,mlwn:1.1, harmonics:{M2:{a:1.70,p:7},S2:{a:0.58,p:42},N2:{a:0.34,p:352},K1:{a:0.09,p:317},O1:{a:0.06,p:275}}, note:"Hauptreferenzpegel für die Inneren Hebriden", danger:false },
-  "Sound of Mull":          { mhws:3.9,mlws:0.4,mhwn:3.1,mlwn:1.1, harmonics:{M2:{a:1.65,p:10},S2:{a:0.55,p:45},N2:{a:0.32,p:355},K1:{a:0.08,p:320},O1:{a:0.06,p:278}}, note:"Tobermory: Einfahrt bei allen Tidenständen möglich", danger:false },
-  "Corryvreckan":           { mhws:3.3,mlws:0.4,mhwn:2.7,mlwn:1.0, harmonics:{M2:{a:1.42,p:18},S2:{a:0.48,p:52},N2:{a:0.28,p:3},K1:{a:0.07,p:325},O1:{a:0.05,p:280}},  note:"Maximalstrom bis 8.5 kn. Passage nur ±1h um Slack Water. Nie bei Starkwind W–NW.", danger:true },
-  "Loch Scavaig (Skye)":   { mhws:4.8,mlws:0.5,mhwn:3.7,mlwn:1.3, harmonics:{M2:{a:2.05,p:358},S2:{a:0.70,p:33},N2:{a:0.40,p:343},K1:{a:0.10,p:310},O1:{a:0.07,p:268}}, note:"Anker nur auf SW-Seite; exponiert bei SE-Wind", danger:false },
-  "Portree (Skye)":         { mhws:4.9,mlws:0.5,mhwn:3.8,mlwn:1.3, harmonics:{M2:{a:2.10,p:356},S2:{a:0.71,p:31},N2:{a:0.41,p:341},K1:{a:0.10,p:308},O1:{a:0.07,p:266}}, note:"Gut geschützter Hafen. Pier-Liegeplätze begrenzt.", danger:false },
-  "Craighouse (Jura)":      { mhws:3.0,mlws:0.4,mhwn:2.5,mlwn:0.9, harmonics:{M2:{a:1.28,p:22},S2:{a:0.43,p:57},N2:{a:0.25,p:7},K1:{a:0.06,p:328},O1:{a:0.05,p:283}},  note:"Jura Distillery: Anker in 4–6m vor dem Dorf", danger:false },
-  "Sound of Islay":         { mhws:3.1,mlws:0.4,mhwn:2.6,mlwn:0.9, harmonics:{M2:{a:1.32,p:20},S2:{a:0.44,p:55},N2:{a:0.26,p:5},K1:{a:0.06,p:326},O1:{a:0.05,p:281}},  note:"Strom bis 3 kn. Richtung N bei Flut, S bei Ebbe.", danger:false },
-  "Colonsay":               { mhws:3.3,mlws:0.4,mhwn:2.7,mlwn:1.0, harmonics:{M2:{a:1.40,p:19},S2:{a:0.47,p:54},N2:{a:0.27,p:4},K1:{a:0.07,p:327},O1:{a:0.05,p:282}},  note:"Guter Stopover; Pier bei NW exponiert", danger:false },
+  "Oban":                   { mhws:4.0,mlws:0.4,mhwn:3.2,mlwn:1.1, harmonics:{M2:{a:1.09,p:8},S2:{a:0.47,p:48},N2:{a:0.22,p:350},K1:{a:0.09,p:312},O1:{a:0.06,p:270}}, note:"Hauptreferenzpegel für die Inneren Hebriden", danger:false },
+  "Sound of Mull":          { mhws:3.9,mlws:0.4,mhwn:3.1,mlwn:1.1, harmonics:{M2:{a:1.04,p:12},S2:{a:0.45,p:50},N2:{a:0.21,p:355},K1:{a:0.09,p:315},O1:{a:0.06,p:273}}, note:"Tobermory: Einfahrt bei allen Tidenständen möglich", danger:false },
+  "Corryvreckan":           { mhws:3.3,mlws:0.4,mhwn:2.7,mlwn:1.0, harmonics:{M2:{a:0.90,p:20},S2:{a:0.39,p:58},N2:{a:0.18,p:5},K1:{a:0.08,p:320},O1:{a:0.05,p:277}},  note:"Maximalstrom bis 8.5 kn. Passage nur ±1h um Slack Water. Nie bei Starkwind W–NW.", danger:true },
+  "Loch Scavaig (Skye)":   { mhws:4.8,mlws:0.5,mhwn:3.7,mlwn:1.3, harmonics:{M2:{a:1.32,p:2},S2:{a:0.57,p:38},N2:{a:0.26,p:347},K1:{a:0.10,p:308},O1:{a:0.07,p:265}}, note:"Anker nur auf SW-Seite; exponiert bei SE-Wind", danger:false },
+  "Portree (Skye)":         { mhws:4.9,mlws:0.5,mhwn:3.8,mlwn:1.3, harmonics:{M2:{a:1.35,p:0},S2:{a:0.58,p:36},N2:{a:0.27,p:345},K1:{a:0.10,p:306},O1:{a:0.07,p:263}}, note:"Gut geschützter Hafen. Pier-Liegeplätze begrenzt.", danger:false },
+  "Craighouse (Jura)":      { mhws:3.0,mlws:0.4,mhwn:2.5,mlwn:0.9, harmonics:{M2:{a:0.82,p:24},S2:{a:0.35,p:62},N2:{a:0.16,p:9},K1:{a:0.07,p:324},O1:{a:0.05,p:280}},  note:"Jura Distillery: Anker in 4–6m vor dem Dorf", danger:false },
+  "Sound of Islay":         { mhws:3.1,mlws:0.4,mhwn:2.6,mlwn:0.9, harmonics:{M2:{a:0.85,p:22},S2:{a:0.36,p:60},N2:{a:0.17,p:7},K1:{a:0.07,p:322},O1:{a:0.05,p:278}},  note:"Strom bis 3 kn. Richtung N bei Flut, S bei Ebbe.", danger:false },
+  "Colonsay":               { mhws:3.3,mlws:0.4,mhwn:2.7,mlwn:1.0, harmonics:{M2:{a:0.90,p:21},S2:{a:0.38,p:58},N2:{a:0.18,p:6},K1:{a:0.08,p:323},O1:{a:0.05,p:279}},  note:"Guter Stopover; Pier bei NW exponiert", danger:false },
 };
 
 const PASSAGES = {
   "Corryvreckan":         { danger:true,  pos:"56°08'N 5°44'W", maxS:8.5, maxN:4.5, slackOff:330, note:"Passage nur ±45min um Slack Water (Spring) / ±1h (Neap). Overfalls bei Wind gegen Strom.", streams:[{h:-6,s:1.5,n:0.8,d:270,l:"W – ablaufend"},{h:-5,s:3.5,n:1.8,d:270,l:"W – ablaufend"},{h:-4,s:6.0,n:3.2,d:270,l:"W – stark"},{h:-3,s:8.0,n:4.2,d:270,l:"W – Maximum"},{h:-2,s:7.5,n:4.0,d:270,l:"W – abnehmend"},{h:-1,s:4.5,n:2.4,d:270,l:"W – schwächer"},{h:0,s:1.0,n:0.5,d:0,l:"Slack ~HW+5h30"},{h:1,s:2.0,n:1.0,d:90,l:"O – aufbauend"},{h:2,s:5.0,n:2.6,d:90,l:"O – stark"},{h:3,s:8.5,n:4.5,d:90,l:"O – Maximum"},{h:4,s:7.0,n:3.7,d:90,l:"O – abnehmend"},{h:5,s:3.5,n:1.8,d:90,l:"O – schwächer"},{h:6,s:1.0,n:0.5,d:0,l:"Slack – nächstes Fenster"}]},
   "Kyle Rhea":            { danger:true,  pos:"57°14'N 5°40'W", maxS:8.0, maxN:4.0, slackOff:0,   note:"Einer der stärksten Tidenstrome Schottlands. Passage nur bei Slack (HW Oban ±30min). N-Richtung bei Flut.", streams:[{h:-6,s:1.5,n:0.8,d:180,l:"S – ablaufend"},{h:-5,s:4.0,n:2.0,d:180,l:"S – stark"},{h:-4,s:7.0,n:3.5,d:180,l:"S – Maximum"},{h:-3,s:8.0,n:4.0,d:180,l:"S – Maximum"},{h:-2,s:6.5,n:3.3,d:180,l:"S – abnehmend"},{h:-1,s:3.0,n:1.5,d:180,l:"S – schwächer"},{h:0,s:0.5,n:0.2,d:0,l:"Slack – HW Oban"},{h:1,s:3.5,n:1.8,d:0,l:"N – aufbauend"},{h:2,s:6.5,n:3.3,d:0,l:"N – stark"},{h:3,s:8.0,n:4.0,d:0,l:"N – Maximum"},{h:4,s:7.0,n:3.5,d:0,l:"N – abnehmend"},{h:5,s:3.5,n:1.8,d:0,l:"N – schwächer"},{h:6,s:1.0,n:0.5,d:0,l:"Slack – nächstes Fenster"}]},
   "Sound of Islay":       { danger:false, pos:"55°55'N 6°02'W", maxS:3.5, maxN:1.8, slackOff:60,  note:"N-Richtung bei Flut (HW Oban), S bei Ebbe. Überfall bei N-Strom und SW-Wind möglich.", streams:[{h:-6,s:3.0,n:1.6,d:180,l:"S – ablaufend"},{h:-5,s:3.5,n:1.8,d:180,l:"S – Maximum"},{h:-4,s:3.0,n:1.6,d:180,l:"S – abnehmend"},{h:-3,s:2.0,n:1.0,d:180,l:"S – schwächer"},{h:-2,s:1.0,n:0.5,d:180,l:"S – schwach"},{h:-1,s:0.5,n:0.2,d:0,l:"Slack ~HW-1h"},{h:0,s:1.5,n:0.8,d:0,l:"N – aufbauend"},{h:1,s:2.5,n:1.3,d:0,l:"N – stark"},{h:2,s:3.5,n:1.8,d:0,l:"N – Maximum"},{h:3,s:3.0,n:1.6,d:0,l:"N – abnehmend"},{h:4,s:2.0,n:1.0,d:0,l:"N – schwächer"},{h:5,s:0.5,n:0.3,d:0,l:"Slack ~HW+5h"},{h:6,s:2.0,n:1.0,d:180,l:"S – aufbauend"}]},
-  "Sound of Mull":        { danger:false, pos:"56°32'N 5°48'W", maxS:2.5, maxN:1.3, slackOff:30,  note:"NE-Richtung bei Flut (Richtung Tobermory). Moderat – auch bei Spring unproblematisch.", streams:[{h:-6,s:2.0,n:1.0,d:225,l:"SW – ablaufend"},{h:-5,s:2.5,n:1.3,d:225,l:"SW – Maximum"},{h:-4,s:2.0,n:1.0,d:225,l:"SW – abnehmend"},{h:-3,s:1.5,n:0.8,d:225,l:"SW – schwächer"},{h:-2,s:0.8,n:0.4,d:225,l:"SW – schwach"},{h:-1,s:0.3,n:0.2,d:0,l:"Slack ~HW-30min"},{h:0,s:0.8,n:0.4,d:45,l:"NE – aufbauend"},{h:1,s:1.5,n:0.8,d:45,l:"NE – stark"},{h:2,s:2.5,n:1.3,d:45,l:"NE – Maximum"},{h:3,s:2.0,n:1.0,d:45,l:"NE – abnehmend"},{h:4,s:1.5,n:0.8,d:45,l:"NE – schwächer"},{h:5,s:0.5,n:0.3,d:0,l:"Slack ~HW+5h"},{h:6,s:1.5,n:0.8,d:225,l:"SW – aufbauend"}]},
+  "Sound of Mull":        { danger:false, pos:"56°32'N 5°48'W", maxS:2.5, maxN:1.3, slackOff:30,  note:"NW-Richtung bei Flut (Richtung Tobermory/Ardnamurchan). Moderat – auch bei Spring unproblematisch.", streams:[{h:-6,s:2.0,n:1.0,d:135,l:"SE – ablaufend"},{h:-5,s:2.5,n:1.3,d:135,l:"SE – Maximum"},{h:-4,s:2.0,n:1.0,d:135,l:"SE – abnehmend"},{h:-3,s:1.5,n:0.8,d:135,l:"SE – schwächer"},{h:-2,s:0.8,n:0.4,d:135,l:"SE – schwach"},{h:-1,s:0.3,n:0.2,d:0,l:"Slack ~HW-30min"},{h:0,s:0.8,n:0.4,d:315,l:"NW – aufbauend"},{h:1,s:1.5,n:0.8,d:315,l:"NW – stark"},{h:2,s:2.5,n:1.3,d:315,l:"NW – Maximum"},{h:3,s:2.0,n:1.0,d:315,l:"NW – abnehmend"},{h:4,s:1.5,n:0.8,d:315,l:"NW – schwächer"},{h:5,s:0.5,n:0.3,d:0,l:"Slack ~HW+5h"},{h:6,s:1.5,n:0.8,d:135,l:"SE – aufbauend"}]},
   "Dorus Mor":            { danger:true,  pos:"56°08'N 5°38'W", maxS:7.5, maxN:4.0, slackOff:60,  note:"Starke Overfalls und Wirbel bei Maximalstrom. Passage ±1h um Slack. Craobh Haven direkt östlich – gutes Wartegebiet.", streams:[{h:-6,s:1.5,n:0.8,d:180,l:"S – ablaufend"},{h:-5,s:4.0,n:2.1,d:180,l:"S – stark"},{h:-4,s:6.5,n:3.4,d:180,l:"S – stark"},{h:-3,s:7.5,n:4.0,d:180,l:"S – Maximum"},{h:-2,s:6.0,n:3.2,d:180,l:"S – abnehmend"},{h:-1,s:3.0,n:1.6,d:180,l:"S – schwächer"},{h:0,s:0.5,n:0.3,d:0,l:"Slack ~HW+1h"},{h:1,s:2.5,n:1.3,d:0,l:"N – aufbauend"},{h:2,s:5.5,n:2.9,d:0,l:"N – stark"},{h:3,s:7.5,n:4.0,d:0,l:"N – Maximum"},{h:4,s:6.0,n:3.2,d:0,l:"N – abnehmend"},{h:5,s:3.0,n:1.6,d:0,l:"N – schwächer"},{h:6,s:0.5,n:0.3,d:0,l:"Slack – nächstes Fenster"}]},
   "Cuan Sound":           { danger:false, pos:"56°14'N 5°37'W", maxS:5.5, maxN:2.8, slackOff:90,  note:"Engstelle Seil–Luing. Brücke 6m Luftraum. Passage nur bei Slack – Querstrom baut sehr schnell auf.", streams:[{h:-6,s:1.0,n:0.5,d:135,l:"SE – ablaufend"},{h:-5,s:3.0,n:1.5,d:135,l:"SE – stark"},{h:-4,s:5.0,n:2.5,d:135,l:"SE – Maximum"},{h:-3,s:5.5,n:2.8,d:135,l:"SE – Maximum"},{h:-2,s:4.0,n:2.0,d:135,l:"SE – abnehmend"},{h:-1,s:2.0,n:1.0,d:135,l:"SE – schwächer"},{h:0,s:0.3,n:0.2,d:0,l:"Slack ~HW+1h30"},{h:1,s:2.5,n:1.3,d:315,l:"NW – aufbauend"},{h:2,s:4.5,n:2.3,d:315,l:"NW – stark"},{h:3,s:5.5,n:2.8,d:315,l:"NW – Maximum"},{h:4,s:4.0,n:2.0,d:315,l:"NW – abnehmend"},{h:5,s:2.0,n:1.0,d:315,l:"NW – schwächer"},{h:6,s:0.3,n:0.2,d:0,l:"Slack – nächstes Fenster"}]},
-  "Loch Linnhe (Corran)": { danger:false, pos:"56°43'N 5°14'W", maxS:3.5, maxN:1.8, slackOff:15,  note:"Fährenroute Corran–Ardgour. Enge Fahrrinne. N-Richtung bei Flut (Richtung Fort William).", streams:[{h:-6,s:2.5,n:1.3,d:180,l:"S – ablaufend"},{h:-5,s:3.5,n:1.8,d:180,l:"S – Maximum"},{h:-4,s:3.0,n:1.5,d:180,l:"S – abnehmend"},{h:-3,s:2.0,n:1.0,d:180,l:"S – schwächer"},{h:-2,s:1.0,n:0.5,d:180,l:"S – schwach"},{h:-1,s:0.3,n:0.2,d:0,l:"Slack ~HW-15min"},{h:0,s:1.0,n:0.5,d:0,l:"N – aufbauend"},{h:1,s:2.0,n:1.0,d:0,l:"N – stark"},{h:2,s:3.5,n:1.8,d:0,l:"N – Maximum"},{h:3,s:3.0,n:1.5,d:0,l:"N – abnehmend"},{h:4,s:2.0,n:1.0,d:0,l:"N – schwächer"},{h:5,s:0.8,n:0.4,d:0,l:"N – schwach"},{h:6,s:0.3,n:0.2,d:0,l:"Slack – nächstes Fenster"}]},
-  "Sound of Jura (N)":    { danger:false, pos:"56°05'N 5°45'W", maxS:2.5, maxN:1.3, slackOff:120, note:"Nördlicher Sound of Jura. Bei Spring und NW-Wind kann Welle aufbauen.", streams:[{h:-6,s:2.0,n:1.0,d:135,l:"SE – ablaufend"},{h:-5,s:2.5,n:1.3,d:135,l:"SE – Maximum"},{h:-4,s:2.0,n:1.0,d:135,l:"SE – abnehmend"},{h:-3,s:1.5,n:0.8,d:135,l:"SE – schwächer"},{h:-2,s:0.8,n:0.4,d:135,l:"SE – schwach"},{h:-1,s:0.3,n:0.2,d:0,l:"Slack ~HW-1h"},{h:0,s:0.8,n:0.4,d:315,l:"NW – aufbauend"},{h:1,s:1.5,n:0.8,d:315,l:"NW – stark"},{h:2,s:2.5,n:1.3,d:315,l:"NW – Maximum"},{h:3,s:2.0,n:1.0,d:315,l:"NW – abnehmend"},{h:4,s:1.5,n:0.8,d:315,l:"NW – schwächer"},{h:5,s:0.5,n:0.3,d:0,l:"Slack ~HW+5h"},{h:6,s:1.5,n:0.8,d:135,l:"SE – aufbauend"}]},
+  "Loch Linnhe (Corran)": { danger:false, pos:"56°43'N 5°14'W", maxS:3.5, maxN:1.8, slackOff:15,  note:"Fährenroute Corran–Ardgour. Enge Fahrrinne. NNE-Richtung bei Flut (Richtung Fort William).", streams:[{h:-6,s:2.5,n:1.3,d:210,l:"SSW – ablaufend"},{h:-5,s:3.5,n:1.8,d:210,l:"SSW – Maximum"},{h:-4,s:3.0,n:1.5,d:210,l:"SSW – abnehmend"},{h:-3,s:2.0,n:1.0,d:210,l:"SSW – schwächer"},{h:-2,s:1.0,n:0.5,d:210,l:"SSW – schwach"},{h:-1,s:0.3,n:0.2,d:0,l:"Slack ~HW-15min"},{h:0,s:1.0,n:0.5,d:30,l:"NNE – aufbauend"},{h:1,s:2.0,n:1.0,d:30,l:"NNE – stark"},{h:2,s:3.5,n:1.8,d:30,l:"NNE – Maximum"},{h:3,s:3.0,n:1.5,d:30,l:"NNE – abnehmend"},{h:4,s:2.0,n:1.0,d:30,l:"NNE – schwächer"},{h:5,s:0.8,n:0.4,d:30,l:"NNE – schwach"},{h:6,s:0.3,n:0.2,d:0,l:"Slack – nächstes Fenster"}]},
+  "Sound of Jura (N)":    { danger:false, pos:"56°05'N 5°45'W", maxS:2.5, maxN:1.3, slackOff:120, note:"Nördlicher Sound of Jura. Bei Spring und NW-Wind kann Welle aufbauen.", streams:[{h:-6,s:2.0,n:1.0,d:160,l:"SSE – ablaufend"},{h:-5,s:2.5,n:1.3,d:160,l:"SSE – Maximum"},{h:-4,s:2.0,n:1.0,d:160,l:"SSE – abnehmend"},{h:-3,s:1.5,n:0.8,d:160,l:"SSE – schwächer"},{h:-2,s:0.8,n:0.4,d:160,l:"SSE – schwach"},{h:-1,s:0.3,n:0.2,d:0,l:"Slack ~HW-1h"},{h:0,s:0.8,n:0.4,d:340,l:"NNW – aufbauend"},{h:1,s:1.5,n:0.8,d:340,l:"NNW – stark"},{h:2,s:2.5,n:1.3,d:340,l:"NNW – Maximum"},{h:3,s:2.0,n:1.0,d:340,l:"NNW – abnehmend"},{h:4,s:1.5,n:0.8,d:340,l:"NNW – schwächer"},{h:5,s:0.5,n:0.3,d:0,l:"Slack ~HW+5h"},{h:6,s:1.5,n:0.8,d:160,l:"SSE – aufbauend"}]},
 };
 
 // ─── Tidal math ───────────────────────────────────────────────────────────────
@@ -118,13 +122,50 @@ function dayProfile(st, dateStr){
 }
 
 function extrema(profile){
-  const ex=[];
-  for(let i=1;i<profile.length-1;i++){
-    const p=profile[i-1].h,c=profile[i].h,n=profile[i+1].h;
-    if(c>p&&c>n) ex.push({...profile[i],type:"HW"});
-    else if(c<p&&c<n) ex.push({...profile[i],type:"LW"});
+  // Smoothing: 3-Punkt-Glättung um flache Kurvenabschnitte (Neap) robust zu erkennen
+  const smoothed = profile.map((pt,i)=>{
+    if(i===0||i===profile.length-1) return pt.h;
+    return (profile[i-1].h + pt.h*2 + profile[i+1].h) / 4;
+  });
+
+  // Kandidaten: lokale Extrema im geglätteten Profil
+  const cands=[];
+  for(let i=1;i<smoothed.length-1;i++){
+    const p=smoothed[i-1],c=smoothed[i],n=smoothed[i+1];
+    if(c>p&&c>n) cands.push({idx:i,type:"HW"});
+    else if(c<p&&c<n) cands.push({idx:i,type:"LW"});
   }
-  return ex;
+
+  // Mindestabstand: ~3h zwischen zwei Extrema (18 Punkte à 10min)
+  const MIN_GAP = 18;
+  const filtered=[];
+  for(const c of cands){
+    const last=filtered[filtered.length-1];
+    if(!last || c.idx-last.idx >= MIN_GAP){
+      filtered.push(c);
+    } else if(c.type===last.type){
+      // Gleiches Typ: behalte das ausgeprägtere
+      const cVal=profile[c.idx].h, lVal=profile[last.idx].h;
+      if(c.type==="HW"&&cVal>lVal) filtered[filtered.length-1]=c;
+      if(c.type==="LW"&&cVal<lVal) filtered[filtered.length-1]=c;
+    }
+  }
+
+  // Abwechselnde HW/LW erzwingen (kein doppeltes HW oder LW hintereinander)
+  const alternating=[];
+  for(const c of filtered){
+    const last=alternating[alternating.length-1];
+    if(!last||c.type!==last.type){
+      alternating.push(c);
+    } else {
+      // Behalte das ausgeprägtere
+      const cVal=profile[c.idx].h, lVal=profile[last.idx].h;
+      if(c.type==="HW"&&cVal>lVal) alternating[alternating.length-1]=c;
+      if(c.type==="LW"&&cVal<lVal) alternating[alternating.length-1]=c;
+    }
+  }
+
+  return alternating.map(c=>({...profile[c.idx],type:c.type}));
 }
 
 function hhmm(m){
